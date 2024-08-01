@@ -1,0 +1,29 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCORM Player</title>
+    <script src="{% static 'scorm_player/js/scorm_api.js' %}"></script>
+</head>
+<body>
+    <h1>SCORM Player</h1>
+    <iframe id="scorm-frame" style="width: 100%; height: 600px; border: none;"></iframe>
+    <script>
+        window.API = new SCORMAPI();
+        window.API_1484_11 = new SCORMAPI();
+    
+        // Function to get the relative path of the launch file
+        function getLaunchUrl() {
+            return Promise.resolve('index_lms.html');
+        }
+    
+        // Load the SCORM content
+        getLaunchUrl().then(launchUrl => {
+            const encodedLaunchUrl = encodeURIComponent(launchUrl);
+            document.getElementById('scorm-frame').src = `/scorm_content/{{ scorm_id }}/${encodedLaunchUrl}`;
+        });
+    </script>
+</body>
+</html>

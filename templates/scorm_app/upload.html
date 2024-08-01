@@ -1,0 +1,27 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload SCORM Package</title>
+</head>
+<body>
+    <h1>Upload SCORM Package</h1>
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <input type="file" name="file" accept=".zip">
+        <button type="submit">Upload</button>
+    </form>
+
+    <h2>Uploaded SCORM Packages</h2>
+    <ul>
+        {% for package in scorm_packages %}
+            <li>
+                {{ package.title }}
+                <a href="{% url 'player' package.pk %}">Launch</a>
+            </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>
