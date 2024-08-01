@@ -24,8 +24,8 @@ To install and run this project locally, follow these steps:
 2. **Clone the repository**
 
    ```
-   git clone https://github.com/yourusername/your-repo-name.git
-   cd your-repo-name
+   git clone https://github.com/phostilite/django-scorm-player.git
+   cd django-scorm-player
    ```
 
 3. **Create a virtual environment**
