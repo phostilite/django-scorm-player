@@ -1,34 +1,84 @@
-from django.db import models
 import os
 import logging
+from django.db import models
+from django.contrib.auth.models import User
 
 logger = logging.getLogger(__name__)
 
-class ScormPackage(models.Model):
+class Course(models.Model):
     title = models.CharField(max_length=255)
-    file = models.FileField(upload_to='scorm_packages/')
-    uploaded_at = models.DateTimeField(auto_now_add=True)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.title
 
-    def get_absolute_url(self):
-        absolute_url = f'/media/{self.file}'
-        logger.debug(f"Generated absolute URL: {absolute_url}")
-        return absolute_url
+class SCORMStandard(models.Model):
+    name = models.CharField(max_length=50, unique=True)
+    version = models.CharField(max_length=20)
+    description = models.TextField(blank=True)
 
-    def get_launch_url(self):
-        file_name = os.path.splitext(os.path.basename(self.file.name))[0]
-        base_dir = os.path.join('media', 'scorm_packages', file_name.replace(' ', '_'))
-        logger.debug(f"Base directory for SCORM package: {base_dir}")
-        for root, dirs, files in os.walk(base_dir):
-            logger.debug(f"Walking through directory: {root}")
-            for file in files:
-                logger.debug(f"Checking file: {file}")
-                if file.lower() == 'imsmanifest.xml':
-                    relative_path = os.path.relpath(root, base_dir)
-                    launch_url = f'/media/scorm_packages/{file_name.replace(" ", "_")}/{relative_path}/index_lms.html'
-                    logger.debug(f"Found imsmanifest.xml, launch URL: {launch_url}")
-                    return launch_url
-        logger.error("imsmanifest.xml not found in SCORM package")
-        return None
+    def __str__(self):
+        return f"{self.name} - {self.version}"
+
+class ScormPackage(models.Model):
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    scorm_standard = models.ForeignKey(SCORMStandard, on_delete=models.SET_NULL, null=True)
+    file = models.FileField(upload_to='scorm_packages/')
+    version = models.CharField(max_length=50)
+    manifest_path = models.CharField(max_length=255)
+    launch_path = models.CharField(max_length=255, blank=True)
+    status = models.CharField(max_length=20, choices=[
+        ('processing', 'Processing'),
+        ('ready', 'Ready'),
+        ('error', 'Error')
+    ], default='processing')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.file.name
+
+class UserCourseRegistration(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    registered_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.course.title}"
+
+class SCORMAttempt(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    scorm_package = models.ForeignKey(ScormPackage, on_delete=models.CASCADE)
+    started_at = models.DateTimeField(auto_now_add=True)
+    last_accessed_at = models.DateTimeField(auto_now=True)
+    completion_status = models.CharField(max_length=20, blank=True)
+    success_status = models.CharField(max_length=20, blank=True)
+    score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
+    is_complete = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.scorm_package.file.name}"
+
+class SCORMElement(models.Model):
+    scorm_attempt = models.ForeignKey(SCORMAttempt, on_delete=models.CASCADE)
+    element_id = models.CharField(max_length=255)
+    value = models.TextField()
+    timestamp = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('scorm_attempt', 'element_id')
+
+    def __str__(self):
+        return f"{self.scorm_attempt} - {self.element_id}"
+
+class APIKeys(models.Model):
+    lms_name = models.CharField(max_length=255)
+    api_key = models.CharField(max_length=255)
+    active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    last_used_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.lms_name

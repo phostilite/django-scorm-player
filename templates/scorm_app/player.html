@@ -1,29 +1,100 @@
-{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SCORM Player</title>
-    <script src="{% static 'scorm_player/js/scorm_api.js' %}"></script>
 </head>
 <body>
-    <h1>SCORM Player</h1>
-    <iframe id="scorm-frame" style="width: 100%; height: 600px; border: none;"></iframe>
+    <div id="scorm-player">
+        <iframe src="{{ launch_url }}" width="100%" height="600px" frameborder="0"></iframe>
+    </div>
     <script>
-        window.API = new SCORMAPI();
-        window.API_1484_11 = new SCORMAPI();
-    
-        // Function to get the relative path of the launch file
-        function getLaunchUrl() {
-            return Promise.resolve('index_lms.html');
+        // SCORM 1.2 API Implementation
+        var API = {
+            LMSInitialize: function() {
+                console.log("LMS Initialized");
+                return "true";
+            },
+            LMSFinish: function() {
+                console.log("LMS Finished");
+                return "true";
+            },
+            LMSGetValue: function(element) {
+                console.log("GetValue for: " + element);
+                // Implement logic to retrieve values from your backend
+                return "";
+            },
+            LMSSetValue: function(element, value) {
+                console.log("SetValue for: " + element + " = " + value);
+                // Implement logic to send values to your backend
+                return "true";
+            },
+            LMSCommit: function() {
+                console.log("LMS Commit");
+                // Implement logic to save current state to backend
+                return "true";
+            },
+            LMSGetLastError: function() {
+                return "0";
+            },
+            LMSGetErrorString: function(errorCode) {
+                return "No error";
+            },
+            LMSGetDiagnostic: function(errorCode) {
+                return "No error";
+            }
+        };
+        
+        // SCORM 2004 API Implementation
+        var API_1484_11 = {
+            Initialize: function() {
+                console.log("API Initialized");
+                return "true";
+            },
+            Terminate: function() {
+                console.log("API Terminated");
+                return "true";
+            },
+            GetValue: function(element) {
+                console.log("GetValue for: " + element);
+                // Implement logic to retrieve values from your backend
+                return "";
+            },
+            SetValue: function(element, value) {
+                console.log("SetValue for: " + element + " = " + value);
+                // Implement logic to send values to your backend
+                return "true";
+            },
+            Commit: function() {
+                console.log("API Commit");
+                // Implement logic to save current state to backend
+                return "true";
+            },
+            GetLastError: function() {
+                return "0";
+            },
+            GetErrorString: function(errorCode) {
+                return "No error";
+            },
+            GetDiagnostic: function(errorCode) {
+                return "No error";
+            }
+        };
+        
+        // Helper function to send data to backend
+        function sendToBackend(data) {
+            fetch('/api/scorm/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data),
+            })
+            .then(response => response.json())
+            .then(data => console.log('Success:', data))
+            .catch((error) => console.error('Error:', error));
         }
-    
-        // Load the SCORM content
-        getLaunchUrl().then(launchUrl => {
-            const encodedLaunchUrl = encodeURIComponent(launchUrl);
-            document.getElementById('scorm-frame').src = `/scorm_content/{{ scorm_id }}/${encodedLaunchUrl}`;
-        });
-    </script>
+        </script>
 </body>
 </html>
