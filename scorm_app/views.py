@@ -1,15 +1,13 @@
-# views.py
 import logging
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, render
 from django.contrib.auth import login, logout
 from django.contrib.auth.models import User
 from celery.result import AsyncResult
-from django.shortcuts import render
 from django.db import transaction
 from .models import Course, ScormPackage, UserCourseRegistration, SCORMAttempt, SCORMElement
 from .serializers import (
@@ -249,19 +247,29 @@ class SCORMElementViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'])
     def update_element(self, request):
+        logger.info("Updating SCORM element")
         attempt_id = request.data.get('attempt_id')
         element_id = request.data.get('element_id')
         value = request.data.get('value')
         
-        attempt = get_object_or_404(SCORMAttempt, id=attempt_id)
-        element, created = SCORMElement.objects.update_or_create(
-            scorm_attempt=attempt,
-            element_id=element_id,
-            defaults={'value': value}
-        )
+        if not all([attempt_id, element_id, value]):
+            logger.error("Missing required data for updating SCORM element")
+            return Response({'error': 'attempt_id, element_id, and value are required.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        serializer = self.get_serializer(element)
-        return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        try:
+            attempt = get_object_or_404(SCORMAttempt, id=attempt_id)
+            element, created = SCORMElement.objects.update_or_create(
+                scorm_attempt=attempt,
+                element_id=element_id,
+                defaults={'value': value}
+            )
+            
+            serializer = self.get_serializer(element)
+            logger.info(f"SCORM element updated: {element_id}")
+            return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error updating SCORM element: {str(e)}")
+            return Response({'error': 'An error occurred while updating the SCORM element.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class SCORMAPIViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
@@ -269,26 +277,56 @@ class SCORMAPIViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['post'])
     def set_value(self, request):
+        logger.info("Setting SCORM API value")
         attempt_id = request.data.get('attempt_id')
         element_id = request.data.get('element_id')
         value = request.data.get('value')
         
-        attempt = get_object_or_404(SCORMAttempt, id=attempt_id, user=request.user)
-        element, _ = SCORMElement.objects.update_or_create(
-            scorm_attempt=attempt,
-            element_id=element_id,
-            defaults={'value': value}
-        )
-        return Response({"success": True})
+        if not all([attempt_id, element_id, value]):
+            logger.error("Missing required data for setting SCORM API value")
+            return Response({'error': 'attempt_id, element_id, and value are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            attempt = get_object_or_404(SCORMAttempt, id=attempt_id, user=request.user)
+            element, _ = SCORMElement.objects.update_or_create(
+                scorm_attempt=attempt,
+                element_id=element_id,
+                defaults={'value': value}
+            )
+            
+            # Update SCORMAttempt if necessary
+            if element_id in ['cmi.core.lesson_status', 'cmi.completion_status']:
+                attempt.update_status(completion_status=value)
+            elif element_id in ['cmi.core.score.raw', 'cmi.score.raw']:
+                attempt.update_status(score=float(value))
+            
+            logger.info(f"SCORM API value set: {element_id}")
+            return Response({"success": True})
+        except Exception as e:
+            logger.error(f"Error setting SCORM API value: {str(e)}")
+            return Response({'error': 'An error occurred while setting the SCORM API value.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['get'])
     def get_value(self, request):
+        logger.info("Getting SCORM API value")
         attempt_id = request.query_params.get('attempt_id')
         element_id = request.query_params.get('element_id')
         
-        attempt = get_object_or_404(SCORMAttempt, id=attempt_id, user=request.user)
-        element = get_object_or_404(SCORMElement, scorm_attempt=attempt, element_id=element_id)
-        return Response({"value": element.value})
+        if not all([attempt_id, element_id]):
+            logger.error("Missing required data for getting SCORM API value")
+            return Response({'error': 'attempt_id and element_id are required.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            attempt = get_object_or_404(SCORMAttempt, id=attempt_id, user=request.user)
+            element = get_object_or_404(SCORMElement, scorm_attempt=attempt, element_id=element_id)
+            logger.info(f"SCORM API value retrieved: {element_id}")
+            return Response({"value": element.value})
+        except SCORMElement.DoesNotExist:
+            logger.warning(f"SCORM element not found: {element_id}")
+            return Response({"value": ""})  # Return empty string for unset values
+        except Exception as e:
+            logger.error(f"Error getting SCORM API value: {str(e)}")
+            return Response({'error': 'An error occurred while getting the SCORM API value.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class ReportingViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
@@ -296,21 +334,31 @@ class ReportingViewSet(viewsets.ViewSet):
 
     @action(detail=False, methods=['get'])
     def user_course_report(self, request):
+        logger.info("Generating user course report")
         user_id = request.query_params.get('user_id')
         course_id = request.query_params.get('course_id')
         
-        user = get_object_or_404(User, id=user_id)
-        course = get_object_or_404(Course, id=course_id)
+        if not all([user_id, course_id]):
+            logger.error("Missing required data for generating user course report")
+            return Response({'error': 'user_id and course_id are required.'}, status=status.HTTP_400_BAD_REQUEST)
         
-        attempts = SCORMAttempt.objects.filter(user=user, scorm_package__course=course)
-        
-        report_data = {
-            'user': UserSerializer(user).data,
-            'course': CourseSerializer(course).data,
-            'attempts': SCORMAttemptSerializer(attempts, many=True).data,
-        }
-        
-        return Response(report_data)
+        try:
+            user = get_object_or_404(User, id=user_id)
+            course = get_object_or_404(Course, id=course_id)
+            
+            attempts = SCORMAttempt.objects.filter(user=user, scorm_package__course=course)
+            
+            report_data = {
+                'user': UserSerializer(user).data,
+                'course': CourseSerializer(course).data,
+                'attempts': SCORMAttemptSerializer(attempts, many=True).data,
+            }
+            
+            logger.info(f"User course report generated for user {user_id} and course {course_id}")
+            return Response(report_data)
+        except Exception as e:
+            logger.error(f"Error generating user course report: {str(e)}")
+            return Response({'error': 'An error occurred while generating the report.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def launch_scorm(request, attempt_id):
     logger.info(f"Launching SCORM for attempt {attempt_id}")
@@ -318,13 +366,21 @@ def launch_scorm(request, attempt_id):
         attempt = get_object_or_404(SCORMAttempt, id=attempt_id, user=request.user)
         package = attempt.scorm_package
         
+        launch_url = package.get_launch_url()
+        if not launch_url:
+            logger.error(f"Launch URL not found for SCORM package {package.id}")
+            return render(request, 'scorm_app/error.html', {'error': 'Launch URL not found for this SCORM package.'})
+        
         context = {
             'attempt': attempt,
             'package': package,
-            'launch_url': f'/media/scorm_extracted/{package.id}/index_lms.html',
+            'launch_url': launch_url,
         }
         logger.info(f"SCORM launched successfully for attempt {attempt_id}")
         return render(request, 'scorm_app/player.html', context)
+    except SCORMAttempt.DoesNotExist:
+        logger.error(f"SCORM attempt {attempt_id} not found")
+        return render(request, 'scorm_app/error.html', {'error': 'SCORM attempt not found.'})
     except Exception as e:
         logger.error(f"Error launching SCORM for attempt {attempt_id}: {str(e)}")
         return render(request, 'scorm_app/error.html', {'error': 'An error occurred while launching the SCORM package.'})

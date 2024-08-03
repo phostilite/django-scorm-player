@@ -41,7 +41,12 @@ class ScormPackage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.file.name
+        return f"{self.course.title} - {self.file.name}"
+
+    def get_launch_url(self):
+        if self.launch_path:
+            return os.path.join('/media/scorm_extracted/', str(self.id), self.launch_path)
+        return None
 
 class UserCourseRegistration(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -68,6 +73,15 @@ class SCORMAttempt(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.scorm_package.file.name}"
+
+    def update_status(self, completion_status=None, success_status=None, score=None):
+        if completion_status:
+            self.completion_status = completion_status
+        if success_status:
+            self.success_status = success_status
+        if score is not None:
+            self.score = score
+        self.save()
 
 class SCORMElement(models.Model):
     scorm_attempt = models.ForeignKey(SCORMAttempt, on_delete=models.CASCADE)
