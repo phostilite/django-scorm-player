@@ -2,8 +2,12 @@
 from celery import shared_task
 import zipfile
 import os
+import re
+import logging
 import xml.etree.ElementTree as ET
-from .models import ScormPackage
+from .models import ScormPackage, SCORMStandard
+
+logger = logging.getLogger(__name__)
 
 @shared_task
 def process_scorm_package(package_id):
@@ -18,41 +22,77 @@ def process_scorm_package(package_id):
 
         # Find imsmanifest.xml and parse it
         manifest_path = find_manifest(extract_path)
+        logger.info(f"Manifest path: {manifest_path}")
         if not manifest_path:
             raise Exception("imsmanifest.xml not found")
 
         # Parse manifest and update package info
-        launch_path = parse_manifest(manifest_path)
+        scorm_version, launch_path = parse_manifest(manifest_path)
         package.manifest_path = os.path.relpath(manifest_path, extract_path)
         package.launch_path = launch_path
+
+        # Set SCORM standard
+        scorm_standard = get_scorm_standard(scorm_version)
+        if scorm_standard:
+            package.scorm_standard = scorm_standard
+        
+        # Set version from index_lms.html
+        logger.info("Checking index_lms.html for version")
+        index_path = os.path.join(extract_path, 'index_lms.html')
+        logger.info(f"Index path: {index_path}")
+        if os.path.exists(index_path):
+            with open(index_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                version_match = re.search(r'version: ([\d\.]+)', content)
+                logger.info(f"Version match: {version_match}")
+                if version_match:
+                    package.version = version_match.group(1)
+
         package.status = 'ready'
     except Exception as e:
         package.status = 'error'
-        # Log the error
+        logger.error(f"Error processing SCORM package {package_id}: {str(e)}")
 
     package.save()
+    return package.id
 
 def find_manifest(path):
     for root, dirs, files in os.walk(path):
         if 'imsmanifest.xml' in files:
+            logger.info("Found imsmanifest.xml")
             return os.path.join(root, 'imsmanifest.xml')
+        elif 'tincan.xml' in files:
+            logger.info("Found tincan.xml (xAPI package)")
+            return os.path.join(root, 'tincan.xml')
+    logger.warning("No manifest file found")
     return None
 
 def parse_manifest(manifest_path):
+    logger.info(f"Parsing manifest: {manifest_path}")
     tree = ET.parse(manifest_path)
+    logger.info(f"Manifest parsed: {manifest_path}")
     root = tree.getroot()
+    logger.info(f"Root element: {root}")
 
     # Define namespaces
     namespaces = {
-        'adlcp': 'http://www.adlnet.org/xsd/adlcp_rootv1p2',
         'imscp': 'http://www.imsproject.org/xsd/imscp_rootv1p1p2',
+        'adlcp': 'http://www.adlnet.org/xsd/adlcp_rootv1p2',
         'xsi': 'http://www.w3.org/2001/XMLSchema-instance'
     }
+
+    # Find the schemaversion
+    logger.info("Finding schema version in manifest")
+    schema_version = root.find('.//imscp:schemaversion', namespaces)
+    logger.info(f"Schema version element: {schema_version}")
+    scorm_version = schema_version.text if schema_version is not None else None
+    logger.info(f"Found schema version in manifest: {scorm_version}")
 
     # Find the organization element
     organization = root.find('.//imscp:organizations/imscp:organization', namespaces)
     
     if organization is None:
+        logger.warning("Organization element not found in manifest")
         raise ValueError("No organization found in manifest")
 
     # Find the first item in the organization
@@ -82,4 +122,18 @@ def parse_manifest(manifest_path):
     # Construct the full path
     launch_path = os.path.join(os.path.dirname(manifest_path), href)
 
-    return launch_path
+    return scorm_version, launch_path
+
+def get_scorm_standard(version):
+    logger.info(f"Determining SCORM standard for version: {version}")
+    if version is None:
+        logger.warning("SCORM version is None, unable to determine standard")
+        return None
+    if version == '1.2':
+        standard, _ = SCORMStandard.objects.get_or_create(name='SCORM 1.2', version='1.2')
+    elif version == '2004':
+        standard, _ = SCORMStandard.objects.get_or_create(name='SCORM 2004', version='4th Edition')
+    else:
+        logger.warning(f"Unknown SCORM version: {version}")
+        standard = None
+    return standard

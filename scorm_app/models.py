@@ -11,6 +11,9 @@ class Course(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 
+    class Meta:
+        ordering = ['-created_at']
+
     def __str__(self):
         return self.title
 
@@ -57,6 +60,11 @@ class SCORMAttempt(models.Model):
     success_status = models.CharField(max_length=20, blank=True)
     score = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
     is_complete = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if self.score is not None:
+            self.score = max(0, min(100, self.score))
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.user.username} - {self.scorm_package.file.name}"
