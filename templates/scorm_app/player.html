@@ -7,32 +7,35 @@
 </head>
 <body>
     <div id="scorm-player">
-        <iframe src="{{ launch_url }}" width="100%" height="600px" frameborder="0"></iframe>
+        <iframe id="scorm-content" src="{{ launch_url }}" width="100%" height="600px" frameborder="0"></iframe>
     </div>
     <script>
+        const ATTEMPT_ID = "{{ attempt.id }}";
+        const API_BASE_URL = "/api/scorm-api/";
+        let sessionActive = false;
+
         // SCORM 1.2 API Implementation
         var API = {
             LMSInitialize: function() {
                 console.log("LMS Initialized");
+                startSession();
                 return "true";
             },
             LMSFinish: function() {
                 console.log("LMS Finished");
+                endSession();
                 return "true";
             },
             LMSGetValue: function(element) {
                 console.log("GetValue for: " + element);
-                // Implement logic to retrieve values from your backend
-                return "";
+                return getValueFromBackend(element);
             },
             LMSSetValue: function(element, value) {
                 console.log("SetValue for: " + element + " = " + value);
-                // Implement logic to send values to your backend
-                return "true";
+                return setValueToBackend(element, value);
             },
             LMSCommit: function() {
                 console.log("LMS Commit");
-                // Implement logic to save current state to backend
                 return "true";
             },
             LMSGetLastError: function() {
@@ -50,25 +53,24 @@
         var API_1484_11 = {
             Initialize: function() {
                 console.log("API Initialized");
+                startSession();
                 return "true";
             },
             Terminate: function() {
                 console.log("API Terminated");
+                endSession();
                 return "true";
             },
             GetValue: function(element) {
                 console.log("GetValue for: " + element);
-                // Implement logic to retrieve values from your backend
-                return "";
+                return getValueFromBackend(element);
             },
             SetValue: function(element, value) {
                 console.log("SetValue for: " + element + " = " + value);
-                // Implement logic to send values to your backend
-                return "true";
+                return setValueToBackend(element, value);
             },
             Commit: function() {
                 console.log("API Commit");
-                // Implement logic to save current state to backend
                 return "true";
             },
             GetLastError: function() {
@@ -83,18 +85,55 @@
         };
         
         // Helper function to send data to backend
-        function sendToBackend(data) {
-            fetch('/api/scorm/update', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(data),
-            })
-            .then(response => response.json())
-            .then(data => console.log('Success:', data))
-            .catch((error) => console.error('Error:', error));
+        async function sendToBackend(endpoint, method, data) {
+            try {
+                const response = await fetch(API_BASE_URL + endpoint, {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Token ' + localStorage.getItem('authToken')
+                    },
+                    body: JSON.stringify(data),
+                });
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return await response.json();
+            } catch (error) {
+                console.error('Error:', error);
+                return null;
+            }
         }
-        </script>
+
+        async function getValueFromBackend(element) {
+            const response = await sendToBackend('get_value/', 'GET', { attempt_id: ATTEMPT_ID, element_id: element });
+            return response ? response.value : "";
+        }
+
+        async function setValueToBackend(element, value) {
+            const response = await sendToBackend('set_value/', 'POST', { attempt_id: ATTEMPT_ID, element_id: element, value: value });
+            return response && response.success ? "true" : "false";
+        }
+
+        async function startSession() {
+            if (!sessionActive) {
+                const response = await sendToBackend(`attempts/${ATTEMPT_ID}/start_session/`, 'POST', {});
+                sessionActive = response && response.message === "Session started";
+            }
+        }
+
+        async function endSession() {
+            if (sessionActive) {
+                const response = await sendToBackend(`attempts/${ATTEMPT_ID}/end_session/`, 'POST', {});
+                sessionActive = !(response && response.message === "Session ended");
+            }
+        }
+
+        // Handle page unload
+        window.addEventListener('beforeunload', function (e) {
+            endSession();
+        });
+
+    </script>
 </body>
 </html>
