@@ -41,6 +41,15 @@ class CustomTokenAuthentication(TokenAuthentication):
             raise AuthenticationFailed(msg)
 
         return self.authenticate_credentials(token)
+    
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def test_connection(request):
+    return Response({
+        "status": "success",
+        "message": "Connection to the SCORMHub API is successful.",
+        "api_version": "1.0"  
+    }, status=status.HTTP_200_OK)
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
