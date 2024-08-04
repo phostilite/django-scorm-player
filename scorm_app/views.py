@@ -1,6 +1,6 @@
 import logging
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework import viewsets, status, serializers, permissions
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.authtoken.models import Token
@@ -45,14 +45,14 @@ class CustomTokenAuthentication(TokenAuthentication):
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
+    authentication_classes = [CustomTokenAuthentication]
     
     def get_permissions(self):
-        if self.action == 'create_user':
+        if self.action in ['create', 'validate_user']:
             return [AllowAny()]
         return [IsAuthenticated()]
     
-    @action(detail=False, methods=['post'])
-    def create_user(self, request):
+    def create(self, request):
         logger.info("Attempting to create a new user")
         serializer = self.get_serializer(data=request.data)
         try:
@@ -64,9 +64,69 @@ class UserViewSet(viewsets.ModelViewSet):
                 'user': serializer.data,
                 'token': token.key
             }, status=status.HTTP_201_CREATED)
-        except ValidationError as e:
+        except serializers.ValidationError as e:
             logger.error(f"User creation failed: {str(e)}")
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.error(f"Unexpected error during user creation: {str(e)}")
+            return Response({'error': 'An unexpected error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=False, methods=['post'], authentication_classes=[])
+    def validate_user(self, request):
+        logger.info("Attempting to validate user")
+        username = request.data.get('username')
+        email = request.data.get('email')
+
+        if not username or not email:
+            logger.error("Missing username or email in request")
+            return Response({'error': 'Both username and email are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(username=username, email=email)
+            logger.info(f"User validated successfully: {username}")
+            return Response({
+                'exists': True,
+                'user_id': user.id
+            }, status=status.HTTP_200_OK)
+        except User.DoesNotExist:
+            logger.info(f"User not found: {username}")
+            return Response({
+                'exists': False
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Error validating user: {str(e)}")
+            return Response({'error': 'An error occurred while validating the user.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def list(self, request):
+        # Optionally restrict this to admin users
+        if not request.user.is_staff:
+            return Response({"error": "Not authorized"}, status=status.HTTP_403_FORBIDDEN)
+        return super().list(request)
+
+    def retrieve(self, request, pk=None):
+        # Optionally restrict this to admin users or the user themselves
+        user = self.get_object()
+        if not request.user.is_staff and request.user.id != user.id:
+            return Response({"error": "Not authorized"}, status=status.HTTP_403_FORBIDDEN)
+        return super().retrieve(request, pk)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', False)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+
+        if getattr(instance, '_prefetched_objects_cache', None):
+            instance._prefetched_objects_cache = {}
+
+        return Response(serializer.data)
+
+    def destroy(self, request, pk=None):
+        # Optionally restrict this to admin users
+        if not request.user.is_staff:
+            return Response({"error": "Not authorized"}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, pk)
 
 class CourseViewSet(viewsets.ModelViewSet):
     queryset = Course.objects.all()
@@ -384,3 +444,9 @@ def launch_scorm(request, attempt_id):
     except Exception as e:
         logger.error(f"Error launching SCORM for attempt {attempt_id}: {str(e)}")
         return render(request, 'scorm_app/error.html', {'error': 'An error occurred while launching the SCORM package.'})
+    
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def test_validate_user(request):
+    return Response({'message': 'Test endpoint reached'})
