@@ -5,16 +5,18 @@ import os
 import re
 import logging
 import xml.etree.ElementTree as ET
-from .models import ScormPackage, SCORMStandard
+from .models import ScormPackage, SCORMStandard, TaskResult
+from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-@shared_task
-def process_scorm_package(package_id):
+@shared_task(bind=True)
+def process_scorm_package(self, package_id, task_id):
     package = ScormPackage.objects.get(id=package_id)
     package.status = 'processing'
     package.save()
 
+    task_result = TaskResult.objects.get(task_id=task_id)
     try:
         with zipfile.ZipFile(package.file.path, 'r') as zip_ref:
             extract_path = f'media/scorm_extracted/{package.id}/'
@@ -49,12 +51,22 @@ def process_scorm_package(package_id):
                     package.version = version_match.group(1)
 
         package.status = 'ready'
+        package.save()
+        
+        task_result.status = 'SUCCESS'
+        task_result.result = {'package_id': package.id}
+        task_result.date_done = timezone.now()
+        task_result.save()
+        
+        return package.id
     except Exception as e:
+        task_result.status = 'FAILURE'
+        task_result.result = {'error': str(e)}
+        task_result.date_done = timezone.now()
+        task_result.save()
         package.status = 'error'
-        logger.error(f"Error processing SCORM package {package_id}: {str(e)}")
-
-    package.save()
-    return package.id
+        package.save()
+        raise
 
 def find_manifest(path):
     for root, dirs, files in os.walk(path):

@@ -10,130 +10,240 @@
         <iframe id="scorm-content" src="{{ launch_url }}" width="100%" height="600px" frameborder="0"></iframe>
     </div>
     <script>
-        const ATTEMPT_ID = "{{ attempt.id }}";
-        const API_BASE_URL = "/api/scorm-api/";
+        const ATTEMPT_ID = "{{ attempt_id }}";
+        const AUTH_TOKEN = "{{ auth_token }}";
+        const API_BASE_URL = "/api/";
         let sessionActive = false;
+        let sessionStartTime;
+
+        console.log(`ATTEMPT_ID set to: ${ATTEMPT_ID}`);
+        console.log(`AUTH_TOKEN set to: ${AUTH_TOKEN}`);
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toISOString();
+            console[type](`[${timestamp}] ${message}`);
+        }
 
         // SCORM 1.2 API Implementation
         var API = {
             LMSInitialize: function() {
-                console.log("LMS Initialized");
+                log("LMSInitialize called");
                 startSession();
                 return "true";
             },
             LMSFinish: function() {
-                console.log("LMS Finished");
-                endSession();
+                log("LMSFinish called");
+                closeScormPlayer();
                 return "true";
             },
             LMSGetValue: function(element) {
-                console.log("GetValue for: " + element);
+                log(`LMSGetValue called for: ${element}`);
                 return getValueFromBackend(element);
             },
             LMSSetValue: function(element, value) {
-                console.log("SetValue for: " + element + " = " + value);
+                log(`LMSSetValue called for: ${element} = ${value}`);
                 return setValueToBackend(element, value);
             },
             LMSCommit: function() {
-                console.log("LMS Commit");
+                log("LMSCommit called");
                 return "true";
             },
             LMSGetLastError: function() {
+                log("LMSGetLastError called");
                 return "0";
             },
             LMSGetErrorString: function(errorCode) {
+                log(`LMSGetErrorString called with errorCode: ${errorCode}`);
                 return "No error";
             },
             LMSGetDiagnostic: function(errorCode) {
+                log(`LMSGetDiagnostic called with errorCode: ${errorCode}`);
                 return "No error";
             }
         };
         
-        // SCORM 2004 API Implementation
+        // SCORM 2004 API Implementation (if needed)
         var API_1484_11 = {
-            Initialize: function() {
-                console.log("API Initialized");
-                startSession();
-                return "true";
-            },
-            Terminate: function() {
-                console.log("API Terminated");
-                endSession();
-                return "true";
-            },
-            GetValue: function(element) {
-                console.log("GetValue for: " + element);
-                return getValueFromBackend(element);
-            },
-            SetValue: function(element, value) {
-                console.log("SetValue for: " + element + " = " + value);
-                return setValueToBackend(element, value);
-            },
-            Commit: function() {
-                console.log("API Commit");
-                return "true";
-            },
-            GetLastError: function() {
-                return "0";
-            },
-            GetErrorString: function(errorCode) {
-                return "No error";
-            },
-            GetDiagnostic: function(errorCode) {
-                return "No error";
-            }
+            // ... (implementation similar to SCORM 1.2)
         };
-        
-        // Helper function to send data to backend
+
         async function sendToBackend(endpoint, method, data) {
-            try {
-                const response = await fetch(API_BASE_URL + endpoint, {
-                    method: method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Token ' + localStorage.getItem('authToken')
-                    },
-                    body: JSON.stringify(data),
-                });
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
+            const url = new URL(API_BASE_URL + endpoint, window.location.origin);
+            
+            const options = {
+                method: method,
+                headers: {
+                    'Authorization': `Token ${AUTH_TOKEN}`,
+                    'Content-Type': 'application/json',
+                },
+            };
+
+            if (method === 'POST' || method === 'PUT') {
+                options.body = JSON.stringify(data);
+            } else if (method === 'GET' && data) {
+                for (let key in data) {
+                    url.searchParams.append(key, data[key]);
                 }
-                return await response.json();
+            }
+
+            log(`Sending ${method} request to ${url}`);
+            try {
+                const response = await fetch(url, options);
+                const responseData = await response.json();
+                log(`Received response: ${JSON.stringify(responseData)}`);
+                if (!response.ok) {
+                    throw new Error(responseData.error || `HTTP error! status: ${response.status}`);
+                }
+                return responseData;
             } catch (error) {
-                console.error('Error:', error);
-                return null;
+                log(`Error in sendToBackend: ${error.message}`, 'error');
+                throw error;
             }
         }
 
         async function getValueFromBackend(element) {
-            const response = await sendToBackend('get_value/', 'GET', { attempt_id: ATTEMPT_ID, element_id: element });
-            return response ? response.value : "";
+            log(`Getting value for element: ${element}`);
+            try {
+                const response = await sendToBackend('scorm-api/get_value/', 'GET', {
+                    attempt_id: ATTEMPT_ID,
+                    element_id: element
+                });
+                if (response && response.hasOwnProperty('value')) {
+                    log(`Received value for ${element}: ${response.value}`);
+                    return response.value;
+                } else {
+                    log(`No value found for ${element}`, 'warn');
+                    return "";
+                }
+            } catch (error) {
+                log(`Error getting value for ${element}: ${error.message}`, 'error');
+                return "";
+            }
         }
 
         async function setValueToBackend(element, value) {
-            const response = await sendToBackend('set_value/', 'POST', { attempt_id: ATTEMPT_ID, element_id: element, value: value });
-            return response && response.success ? "true" : "false";
+            if (value === "" || value === null || value === undefined) {
+                log(`Skipping empty value for element: ${element}`);
+                return "true";
+            }
+            log(`Setting value for element: ${element} to ${value}`);
+            log(`ATTEMPT_ID: ${ATTEMPT_ID}`);
+            try {
+                const response = await sendToBackend('scorm-api/set_value/', 'POST', {
+                    attempt_id: ATTEMPT_ID,
+                    element_id: element,
+                    value: value
+                });
+                if (response && response.success) {
+                    log(`Successfully set value for ${element}`);
+                    return "true";
+                } else {
+                    log(`Failed to set value for ${element}`, 'error');
+                    return "false";
+                }
+            } catch (error) {
+                log(`Error setting value for ${element}: ${error.message}`, 'error');
+                return "false";
+            }
+        }
+
+        async function initializeScormElements() {
+            log("Initializing SCORM elements");
+            const elementsToInitialize = [
+                { id: 'cmi.core.lesson_mode', value: 'normal' },
+                { id: 'cmi.core.lesson_status', value: await getValueFromBackend('cmi.core.lesson_status') || 'not attempted' },
+                { id: 'cmi.core.exit', value: '' },
+                { id: 'cmi.suspend_data', value: await getValueFromBackend('cmi.suspend_data') || '' },
+                { id: 'cmi.core.student_name', value: '{{ user.get_full_name }}' },
+                { id: 'cmi.core.student_id', value: '{{ user.id }}' },
+                { id: 'cmi.core.credit', value: 'credit' },
+                { id: 'cmi.core.entry', value: await getValueFromBackend('cmi.core.entry') || 'ab-initio' },
+                { id: 'cmi.core.total_time', value: await getValueFromBackend('cmi.core.total_time') || '00:00:00' },
+            ];
+
+            for (const element of elementsToInitialize) {
+                if (element.value !== "") {
+                    await setValueToBackend(element.id, element.value);
+                }
+            }
+            log("SCORM elements initialization complete");
         }
 
         async function startSession() {
             if (!sessionActive) {
-                const response = await sendToBackend(`attempts/${ATTEMPT_ID}/start_session/`, 'POST', {});
-                sessionActive = response && response.message === "Session started";
+                log("Starting session");
+                try {
+                    const response = await sendToBackend(`attempts/${ATTEMPT_ID}/start_session/`, 'POST', {});
+                    if (response && response.message === "Session started") {
+                        sessionActive = true;
+                        sessionStartTime = new Date();
+                        log("Session started successfully");
+                        await initializeScormElements();
+                    } else {
+                        log("Failed to start session", 'error');
+                    }
+                } catch (error) {
+                    log(`Error starting session: ${error.message}`, 'error');
+                }
+            } else {
+                log("Session already active");
             }
         }
 
-        async function endSession() {
-            if (sessionActive) {
-                const response = await sendToBackend(`attempts/${ATTEMPT_ID}/end_session/`, 'POST', {});
-                sessionActive = !(response && response.message === "Session ended");
+        function calculateSessionTime() {
+            if (!sessionStartTime) return "00:00:00";
+            const sessionEndTime = new Date();
+            const sessionDuration = sessionEndTime - sessionStartTime;
+            const hours = Math.floor(sessionDuration / 3600000).toString().padStart(2, '0');
+            const minutes = Math.floor((sessionDuration % 3600000) / 60000).toString().padStart(2, '0');
+            const seconds = Math.floor((sessionDuration % 60000) / 1000).toString().padStart(2, '0');
+            return `${hours}:${minutes}:${seconds}`;
+        }
+
+        async function closeScormPlayer() {
+            log("Closing SCORM player");
+            const sessionTime = calculateSessionTime();
+            const exitStatus = 'suspend';
+
+            try {
+                await setValueToBackend('cmi.core.session_time', sessionTime);
+                await setValueToBackend('cmi.core.exit', exitStatus);
+                await sendToBackend(`attempts/${ATTEMPT_ID}/end_session/`, 'POST', {});
+                
+                log("SCORM player closed successfully");
+                window.parent.postMessage('scorm_player_closed', '*');
+            } catch (error) {
+                log(`Error closing SCORM player: ${error.message}`, 'error');
+                window.parent.postMessage('scorm_player_close_error', '*');
             }
         }
+
+        // Handle messages from the parent window
+        window.addEventListener('message', function(event) {
+            if (event.data === 'close_scorm_player') {
+                closeScormPlayer();
+            }
+        });
 
         // Handle page unload
         window.addEventListener('beforeunload', function (e) {
-            endSession();
+            // For beforeunload, we can't use async functions, so we use sendBeacon as a fallback
+            const sessionTime = calculateSessionTime();
+            navigator.sendBeacon(`${API_BASE_URL}scorm-api/set_value/`, new URLSearchParams({
+                attempt_id: ATTEMPT_ID,
+                element_id: 'cmi.core.session_time',
+                value: sessionTime
+            }));
+            navigator.sendBeacon(`${API_BASE_URL}scorm-api/set_value/`, new URLSearchParams({
+                attempt_id: ATTEMPT_ID,
+                element_id: 'cmi.core.exit',
+                value: 'suspend'
+            }));
+            navigator.sendBeacon(`${API_BASE_URL}attempts/${ATTEMPT_ID}/end_session/`, new URLSearchParams());
         });
 
+        log("SCORM Player initialized");
+        startSession();
     </script>
 </body>
 </html>

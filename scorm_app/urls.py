@@ -19,4 +19,5 @@ urlpatterns = [
     path('api/test-connection/', test_connection, name='test_connection'),
 
     path('launch/<int:attempt_id>/', launch_scorm, name='launch_scorm'),
+    path('launch/', launch_scorm, name='launch_scorm_external'),
 ]

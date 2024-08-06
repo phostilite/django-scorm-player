@@ -2,6 +2,8 @@ import os
 import logging
 from django.db import models
 from django.contrib.auth.models import User
+from django.conf import settings
+from django.urls import reverse
 
 logger = logging.getLogger(__name__)
 
@@ -43,9 +45,22 @@ class ScormPackage(models.Model):
     def __str__(self):
         return f"{self.course.title} - {self.file.name}"
 
+    def get_absolute_url(self):
+        return reverse('launch_scorm', args=[str(self.id)])
+
     def get_launch_url(self):
         if self.launch_path:
-            return os.path.join('/media/scorm_extracted/', str(self.id), self.launch_path)
+            # Remove 'media/' from the beginning if it exists
+            clean_path = self.launch_path.lstrip('media/')
+            
+            # Construct the correct URL using the MEDIA_URL setting
+            return f"{settings.MEDIA_URL}{clean_path}"
+        return None
+
+    def get_full_launch_url(self):
+        launch_url = self.get_launch_url()
+        if launch_url:
+            return f"{settings.BASE_URL.rstrip('/')}{launch_url}"
         return None
 
 class UserCourseRegistration(models.Model):
@@ -104,3 +119,13 @@ class APIKeys(models.Model):
 
     def __str__(self):
         return self.lms_name
+    
+class TaskResult(models.Model):
+    task_id = models.CharField(max_length=255, unique=True)
+    status = models.CharField(max_length=50, default='PENDING')
+    result = models.JSONField(null=True, blank=True)
+    date_created = models.DateTimeField(auto_now_add=True)
+    date_done = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Task {self.task_id}: {self.status}"

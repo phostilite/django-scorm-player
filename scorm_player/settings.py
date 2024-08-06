@@ -45,9 +45,11 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'rest_framework',
     'rest_framework.authtoken',
+    'csp',
 ]
 
 MIDDLEWARE = [
+    'csp.middleware.CSPMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -55,12 +57,8 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    # 'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
-
-# CORS settings
-CORS_ALLOW_ALL_ORIGINS = True  # For development only, restrict this in production
-CORS_ALLOW_CREDENTIALS = True
 
 ROOT_URLCONF = 'scorm_player.urls'
 
@@ -142,13 +140,6 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Add these lines for X-Frame-Options
-X_FRAME_OPTIONS = 'SAMEORIGIN'
-SECURE_REFERRER_POLICY = 'no-referrer-when-downgrade'
-
-# If you want to allow all origins (not recommended for production)
-CORS_ALLOW_ALL_ORIGINS = True
-
 # Logging settings
 LOGGING = {
     'version': 1,
@@ -195,3 +186,19 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
+
+BASE_URL = 'http://127.0.0.1:8001'
+
+# Disable Django's built-in clickjacking protection
+X_FRAME_OPTIONS = None
+
+# Allow all origins for CORS
+CORS_ALLOW_ALL_ORIGINS = True
+
+# Remove CSP middleware if it's causing issues
+MIDDLEWARE = [middleware for middleware in MIDDLEWARE if middleware != 'csp.middleware.CSPMiddleware']
+
+# If you have any custom middleware for X-Frame-Options, comment it out for now
+
+# Add this new middleware to allow all origins
+MIDDLEWARE += ['scorm_player.middleware.AllowAllOriginMiddleware']
