@@ -187,7 +187,7 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = 'UTC'
 
-BASE_URL = 'http://127.0.0.1:8001'
+BASE_URL = os.getenv('BASE_URL')
 
 # Disable Django's built-in clickjacking protection
 X_FRAME_OPTIONS = None
