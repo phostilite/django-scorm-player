@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCORMHub - SCORM Player API</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+            background-color: #0a192f;
+            color: #ffffff;
+        }
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            position: relative;
+            z-index: 2;
+        }
+        .content {
+            text-align: center;
+        }
+        h1 {
+            font-size: 5rem;
+            margin-bottom: 1rem;
+            color: #64ffda;
+        }
+        p {
+            font-size: 1.5rem;
+            margin-bottom: 2rem;
+            color: #8892b0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            color: #64ffda;
+            background-color: transparent;
+            border: 2px solid #64ffda;
+            border-radius: 5px;
+            text-decoration: none;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .btn:hover {
+            background-color: rgba(100, 255, 218, 0.1);
+        }
+        .animation-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            pointer-events: none;
+        }
+        .particle {
+            position: absolute;
+            background-color: #64ffda;
+            border-radius: 50%;
+            width: 10px;
+            height: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="animation-container" id="animationContainer"></div>
+    <div class="container">
+        <div class="content">
+            <h1>SCORMHub</h1>
+            <p>Open-source SCORM Player API for seamless e-learning integration</p>
+            <a href="#" class="btn">Explore API</a>
+        </div>
+    </div>
+
+    <script>
+        function createParticles() {
+            const container = document.getElementById('animationContainer');
+            const numParticles = 50;
+
+            for (let i = 0; i < numParticles; i++) {
+                const particle = document.createElement('div');
+                particle.classList.add('particle');
+                particle.style.left = Math.random() * 100 + 'vw';
+                particle.style.top = Math.random() * 100 + 'vh';
+                container.appendChild(particle);
+            }
+
+            console.log('Particles created:', container.children.length);
+        }
+
+        function animateParticles() {
+            const particles = document.querySelectorAll('.particle');
+            
+            anime({
+                targets: particles,
+                translateX: function() {
+                    return anime.random(-200, 200);
+                },
+                translateY: function() {
+                    return anime.random(-200, 200);
+                },
+                scale: function() {
+                    return anime.random(0.2, 2);
+                },
+                opacity: function() {
+                    return anime.random(0.2, 0.8);
+                },
+                duration: function() {
+                    return anime.random(1000, 3000);
+                },
+                easing: 'easeInOutQuad',
+                complete: animateParticles
+            });
+
+            console.log('Animation started');
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('DOM loaded');
+            createParticles();
+            animateParticles();
+
+            anime({
+                targets: '.content h1',
+                opacity: [0, 1],
+                translateY: [50, 0],
+                easing: 'easeOutExpo',
+                duration: 1200,
+                delay: 300
+            });
+
+            anime({
+                targets: '.content p',
+                opacity: [0, 1],
+                translateY: [50, 0],
+                easing: 'easeOutExpo',
+                duration: 1200,
+                delay: 600
+            });
+
+            anime({
+                targets: '.btn',
+                opacity: [0, 1],
+                translateY: [50, 0],
+                easing: 'easeOutExpo',
+                duration: 1200,
+                delay: 900
+            });
+        });
+    </script>
+</body>
+</html>

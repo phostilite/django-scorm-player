@@ -31,6 +31,9 @@ from django.views.decorators.clickjacking import xframe_options_exempt
 
 logger = logging.getLogger(__name__)
 
+def landing_page(request):
+    return render(request, 'landing.html')
+
 class CustomTokenAuthentication(TokenAuthentication):
     def authenticate(self, request):
         auth = request.headers.get('Authorization', '').split()
