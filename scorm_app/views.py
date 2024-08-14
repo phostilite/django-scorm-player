@@ -168,6 +168,18 @@ class CourseViewSet(viewsets.ModelViewSet):
         course = get_object_or_404(Course, pk=pk)
         serializer = self.get_serializer(course)
         return Response(serializer.data)
+    
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            course_id = instance.id
+            self.perform_destroy(instance)
+            logger.info(f"Course with id {course_id} deleted successfully")
+            return Response({"message": "Course deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            logger.error(f"Error deleting course: {str(e)}")
+            return Response({"error": "An error occurred while deleting the course"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
 
 class ScormPackageViewSet(viewsets.ModelViewSet):
     queryset = ScormPackage.objects.all()
@@ -263,6 +275,25 @@ class ScormPackageViewSet(viewsets.ModelViewSet):
         except Exception as e:
             logger.exception(f"Unexpected error checking status for task {task_id}")
             return Response({'error': 'An unexpected error occurred'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
+    def destroy(self, request, *args, **kwargs):
+        try:
+            instance = self.get_object()
+            package_id = instance.id
+            
+            # Delete the associated file
+            if instance.file:
+                if os.path.isfile(instance.file.path):
+                    os.remove(instance.file.path)
+                    logger.info(f"File associated with SCORM package {package_id} deleted")
+
+            # Delete the package from the database
+            self.perform_destroy(instance)
+            logger.info(f"SCORM package with id {package_id} deleted successfully")
+            return Response({"message": "SCORM package deleted successfully"}, status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            logger.error(f"Error deleting SCORM package: {str(e)}")
+            return Response({"error": "An error occurred while deleting the SCORM package"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UserCourseRegistrationViewSet(viewsets.ModelViewSet):
     queryset = UserCourseRegistration.objects.all()

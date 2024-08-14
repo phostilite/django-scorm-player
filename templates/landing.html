@@ -9,29 +9,30 @@
         body, html {
             margin: 0;
             padding: 0;
-            height: 100%;
             font-family: 'Arial', sans-serif;
-            overflow: hidden;
             background-color: #0a192f;
             color: #ffffff;
+            overflow-x: hidden;
         }
         .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        .hero {
+            height: 100vh;
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh;
-            position: relative;
-            z-index: 2;
-        }
-        .content {
             text-align: center;
+            position: relative;
         }
         h1 {
             font-size: 5rem;
             margin-bottom: 1rem;
             color: #64ffda;
         }
-        p {
+        .hero p {
             font-size: 1.5rem;
             margin-bottom: 2rem;
             color: #8892b0;
@@ -66,17 +67,119 @@
             width: 10px;
             height: 10px;
         }
+        .moving-text {
+            white-space: nowrap;
+            overflow: hidden;
+            position: absolute;
+            color: rgba(100, 255, 218, 0.1);
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .sample-player {
+            background-color: #1d2d50;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 4rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        .player-content {
+            background-color: #2c3e50;
+            height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 5px;
+        }
+        .feature {
+            margin-bottom: 4rem;
+        }
+        .feature-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .feature-text {
+            flex: 1;
+            padding-right: 2rem;
+        }
+        .feature-image {
+            flex: 1;
+            background-color: #1d2d50;
+            height: 300px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px;
+        }
+        h2 {
+            font-size: 2rem;
+            color: #64ffda;
+        }
+        p {
+            font-size: 1rem;
+            color: #8892b0;
+        }
     </style>
 </head>
 <body>
     <div class="animation-container" id="animationContainer"></div>
-    <div class="container">
-        <div class="content">
+    
+    <section class="hero">
+        <div class="container">
             <h1>SCORMHub</h1>
             <p>Open-source SCORM Player API for seamless e-learning integration</p>
             <a href="#" class="btn">Explore API</a>
         </div>
-    </div>
+    </section>
+
+    <div class="moving-text" style="top: 110vh;">Revolutionize your e-learning with our powerful SCORM Player API</div>
+    
+    <section class="container">
+        <div class="sample-player">
+            <div class="player-header">
+                <h2>Sample SCORM Player</h2>
+                <div>
+                    <button class="btn">Previous</button>
+                    <button class="btn">Next</button>
+                </div>
+            </div>
+            <div class="player-content">
+                <p>Your SCORM content here</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="container feature">
+        <h2>Easy Integration</h2>
+        <div class="feature-content">
+            <div class="feature-text">
+                <p>SCORMHub provides a simple and intuitive API that allows you to integrate SCORM content into your learning management system with ease. Our robust documentation and support ensure a smooth implementation process.</p>
+            </div>
+            <div class="feature-image">
+                <p>Integration Diagram</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="container feature">
+        <h2>Powerful Analytics</h2>
+        <div class="feature-content">
+            <div class="feature-image">
+                <p>Analytics Dashboard</p>
+            </div>
+            <div class="feature-text">
+                <p>Gain valuable insights into learner performance and engagement with SCORMHub's comprehensive analytics. Track progress, identify areas for improvement, and optimize your e-learning content for maximum effectiveness.</p>
+            </div>
+        </div>
+    </section>
+
+    <div class="moving-text" style="bottom: 10vh;">Seamless e-learning integration with SCORMHub</div>
 
     <script>
         function createParticles() {
@@ -90,8 +193,6 @@
                 particle.style.top = Math.random() * 100 + 'vh';
                 container.appendChild(particle);
             }
-
-            console.log('Particles created:', container.children.length);
         }
 
         function animateParticles() {
@@ -117,40 +218,45 @@
                 easing: 'easeInOutQuad',
                 complete: animateParticles
             });
+        }
 
-            console.log('Animation started');
+        function animateMovingText() {
+            anime({
+                targets: '.moving-text',
+                translateX: function(el) {
+                    return [anime.random(0, window.innerWidth), -el.offsetWidth];
+                },
+                duration: function() {
+                    return anime.random(15000, 25000);
+                },
+                easing: 'linear',
+                loop: true
+            });
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            console.log('DOM loaded');
             createParticles();
             animateParticles();
+            animateMovingText();
 
             anime({
-                targets: '.content h1',
+                targets: '.hero .container > *',
                 opacity: [0, 1],
                 translateY: [50, 0],
                 easing: 'easeOutExpo',
                 duration: 1200,
-                delay: 300
+                delay: anime.stagger(300)
             });
 
             anime({
-                targets: '.content p',
+                targets: '.sample-player, .feature',
                 opacity: [0, 1],
-                translateY: [50, 0],
+                translateY: [100, 0],
                 easing: 'easeOutExpo',
                 duration: 1200,
-                delay: 600
-            });
-
-            anime({
-                targets: '.btn',
-                opacity: [0, 1],
-                translateY: [50, 0],
-                easing: 'easeOutExpo',
-                duration: 1200,
-                delay: 900
+                delay: anime.stagger(300),
+                scrollBegin: 'top 80%',
+                autoplay: true
             });
         });
     </script>

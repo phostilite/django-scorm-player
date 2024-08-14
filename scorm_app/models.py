@@ -28,7 +28,7 @@ class SCORMStandard(models.Model):
         return f"{self.name} - {self.version}"
 
 class ScormPackage(models.Model):
-    course = models.ForeignKey(Course, on_delete=models.CASCADE)
+    course = models.ForeignKey(Course, on_delete=models.SET_NULL, null=True)
     scorm_standard = models.ForeignKey(SCORMStandard, on_delete=models.SET_NULL, null=True)
     file = models.FileField(upload_to='scorm_packages/')
     version = models.CharField(max_length=50)
