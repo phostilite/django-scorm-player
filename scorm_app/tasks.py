@@ -40,7 +40,17 @@ def process_scorm_package(self, package_id, task_id):
         
         # Set version from index_lms.html
         logger.info("Checking index_lms.html for version")
-        index_path = os.path.join(extract_path, 'index_lms.html')
+        index_lms_path = os.path.join(extract_path, 'index_lms.html')
+        index_html_path = os.path.join(extract_path, 'index.html')
+
+        # Check for the existence of the files
+        if os.path.exists(index_html_path):
+            index_path = index_html_path
+        elif os.path.exists(index_lms_path):
+            index_path = index_lms_path
+        else:
+            index_path = None  
+            
         logger.info(f"Index path: {index_path}")
         if os.path.exists(index_path):
             with open(index_path, 'r', encoding='utf-8') as f:

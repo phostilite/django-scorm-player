@@ -43,7 +43,7 @@ class ScormPackage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.course.title} - {self.file.name}"
+        return f"{self.course} - {self.file.name}"
 
     def get_absolute_url(self):
         return reverse('launch_scorm', args=[str(self.id)])

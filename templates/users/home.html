@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SCORMHub - SCORM Player Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #0a192f;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            margin-bottom: 2rem;
+        }
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #64ffda;
+        }
+        nav a {
+            color: #8892b0;
+            text-decoration: none;
+            margin-left: 1rem;
+            transition: color 0.3s;
+        }
+        nav a:hover {
+            color: #64ffda;
+        }
+        h1, h2 {
+            color: #64ffda;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            font-size: 1rem;
+            color: #64ffda;
+            background-color: transparent;
+            border: 2px solid #64ffda;
+            border-radius: 5px;
+            text-decoration: none;
+            transition: background-color 0.3s, color 0.3s;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: rgba(100, 255, 218, 0.1);
+        }
+        .upload-section {
+            background-color: #1d2d50;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        .scorm-list {
+            background-color: #1d2d50;
+            border-radius: 10px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            text-align: left;
+            padding: 0.5rem;
+            border-bottom: 1px solid #2c3e50;
+        }
+        th {
+            color: #64ffda;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .modal-content {
+            background-color: #1d2d50;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #2c3e50;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 10px;
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: #64ffda;
+        }
+        #scormPlayer {
+            width: 100%;
+            height: 600px;
+            border: none;
+        }
+        #logViewer {
+            width: 100%;
+            height: 300px;
+            background-color: #0a192f;
+            color: #8892b0;
+            border: 1px solid #2c3e50;
+            padding: 1rem;
+            overflow-y: auto;
+            font-family: monospace;
+            margin-top: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">SCORMHub</div>
+            <nav>
+                <a href="{% url 'user_login' %}" class="btn">Logout</a>
+            </nav>
+        </header>
+
+        <main>
+            <section class="upload-section">
+                <h2>Upload SCORM Package</h2>
+                <form id="uploadForm">
+                    <input type="file" id="scormFile" accept=".zip" required>
+                    <button type="submit" class="btn">Upload</button>
+                </form>
+            </section>
+
+            <section class="scorm-list">
+                <h2>Your SCORM Packages</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Package Name</th>
+                            <th>Upload Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scormListBody">
+                        <!-- SCORM packages will be populated here -->
+                    </tbody>
+                </table>
+            </section>
+        </main>
+    </div>
+
+    <div id="playerModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>SCORM Player</h2>
+            <iframe id="scormPlayer" title="SCORM Content"></iframe>
+            <h3>SCORM Logs</h3>
+            <div id="logViewer"></div>
+        </div>
+    </div>
+
+    <script>
+        // Simulated SCORM package data
+        const scormPackages = [
+            { id: 1, name: "Introduction to SCORM", uploadDate: "2023-08-15", status: "Ready" },
+            { id: 2, name: "Advanced LMS Integration", uploadDate: "2023-08-10", status: "Processing" },
+            { id: 3, name: "E-Learning Best Practices", uploadDate: "2023-08-05", status: "Ready" },
+        ];
+
+        function populateScormList() {
+            const listBody = document.getElementById('scormListBody');
+            listBody.innerHTML = '';
+            scormPackages.forEach(pkg => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${pkg.name}</td>
+                    <td>${pkg.uploadDate}</td>
+                    <td>${pkg.status}</td>
+                    <td>
+                        <button class="btn" onclick="launchScorm(${pkg.id})">Launch</button>
+                        <button class="btn" onclick="viewLogs(${pkg.id})">View Logs</button>
+                    </td>
+                `;
+                listBody.appendChild(row);
+            });
+        }
+
+        function launchScorm(id) {
+            const modal = document.getElementById('playerModal');
+            const player = document.getElementById('scormPlayer');
+            player.src = `scorm-content/${id}/index.html`;  // Replace with actual SCORM launch URL
+            modal.style.display = 'block';
+        }
+
+        function viewLogs(id) {
+            const logViewer = document.getElementById('logViewer');
+            // Simulated log data
+            const logs = [
+                "2023-08-19 10:15:23 - SCORM initialized",
+                "2023-08-19 10:15:25 - cmi.core.lesson_status set to 'incomplete'",
+                "2023-08-19 10:16:30 - cmi.core.score.raw set to 75",
+                "2023-08-19 10:17:45 - cmi.core.lesson_status set to 'completed'",
+                "2023-08-19 10:17:46 - SCORM session terminated"
+            ];
+            logViewer.innerHTML = logs.join('<br>');
+            const modal = document.getElementById('playerModal');
+            modal.style.display = 'block';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            populateScormList();
+
+            const uploadForm = document.getElementById('uploadForm');
+            uploadForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                alert('SCORM package upload functionality would be implemented here.');
+                // Implement actual file upload logic here
+            });
+
+            const modal = document.getElementById('playerModal');
+            const closeBtn = document.querySelector('.close');
+            closeBtn.onclick = () => {
+                modal.style.display = 'none';
+            };
+            window.onclick = (event) => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            };
+
+            // Animation for SCORM list
+            anime({
+                targets: '.scorm-list table tr',
+                opacity: [0, 1],
+                translateY: [20, 0],
+                delay: anime.stagger(100),
+                easing: 'easeOutQuad'
+            });
+        });
+    </script>
+</body>
+</html>
