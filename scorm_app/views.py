@@ -208,7 +208,8 @@ class ScormPackageViewSet(viewsets.ModelViewSet):
                 package = ScormPackage.objects.create(
                     course=course,
                     file=file,
-                    status='uploaded'
+                    status='uploaded',
+                    created_by=request.user
                 )
                 
                 # Generate a task ID

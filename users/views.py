@@ -33,7 +33,7 @@ def user_dashboard(request):
     scorm_attempts = SCORMAttempt.objects.filter(user=user).select_related('scorm_package__course')
     all_courses = Course.objects.filter(is_active=True)
     try:
-        scorm_packages = ScormPackage.objects.all()
+        scorm_packages = ScormPackage.objects.filter(created_by=user)
     except ScormPackage.DoesNotExist:
         scorm_packages = None
     
