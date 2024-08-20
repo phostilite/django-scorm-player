@@ -32,7 +32,10 @@ def user_dashboard(request):
     registered_courses = UserCourseRegistration.objects.filter(user=user).select_related('course')
     scorm_attempts = SCORMAttempt.objects.filter(user=user).select_related('scorm_package__course')
     all_courses = Course.objects.filter(is_active=True)
-    scorm_packages = ScormPackage.objects.all()
+    try:
+        scorm_packages = ScormPackage.objects.all()
+    except ScormPackage.DoesNotExist:
+        scorm_packages = None
     
     context = {
         'user': user,
