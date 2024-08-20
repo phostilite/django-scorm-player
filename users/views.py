@@ -5,6 +5,7 @@ from django.shortcuts import redirect
 from django.urls import reverse
 from django.contrib import messages
 from scorm_app.models import UserCourseRegistration, SCORMAttempt, Course
+from django.conf import settings
 
 def user_login(request):
     if request.method == 'POST':
@@ -46,4 +47,8 @@ def user_dashboard(request):
 
 
 def user_signup(request):
-    return render(request, 'users/signup.html')
+    context = {
+        'api_url': settings.API_URL,
+        'api_token': settings.API_TOKEN,
+    }
+    return render(request, 'users/signup.html', context)

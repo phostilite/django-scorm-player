@@ -207,3 +207,6 @@ MIDDLEWARE = [middleware for middleware in MIDDLEWARE if middleware != 'csp.midd
 
 # Add this new middleware to allow all origins
 MIDDLEWARE += ['scorm_player.middleware.AllowAllOriginMiddleware']
+
+API_URL = os.getenv('API_URL')
+API_TOKEN = os.getenv('API_TOKEN')
