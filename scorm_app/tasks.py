@@ -33,32 +33,27 @@ def process_scorm_package(self, package_id, task_id):
         package.manifest_path = os.path.relpath(manifest_path, extract_path)
         package.launch_path = launch_path
 
-        # Set SCORM standard
-        scorm_standard = get_scorm_standard(scorm_version)
-        if scorm_standard:
-            package.scorm_standard = scorm_standard
-        
-        # Set version from index_lms.html
-        logger.info("Checking index_lms.html for version")
-        index_lms_path = os.path.join(extract_path, 'index_lms.html')
-        index_html_path = os.path.join(extract_path, 'index.html')
+        # Insert the new code here
+        # Try to find an index file, but don't require it
+        index_files = ['index_lms.html', 'index.html', launch_path]
+        index_path = next((os.path.join(extract_path, f) for f in index_files if os.path.exists(os.path.join(extract_path, f))), None)
 
-        # Check for the existence of the files
-        if os.path.exists(index_html_path):
-            index_path = index_html_path
-        elif os.path.exists(index_lms_path):
-            index_path = index_lms_path
-        else:
-            index_path = None  
-            
         logger.info(f"Index path: {index_path}")
-        if os.path.exists(index_path):
+        if index_path and os.path.exists(index_path):
             with open(index_path, 'r', encoding='utf-8') as f:
                 content = f.read()
                 version_match = re.search(r'version: ([\d\.]+)', content)
                 logger.info(f"Version match: {version_match}")
                 if version_match:
                     package.version = version_match.group(1)
+        else:
+            logger.warning("No suitable index file found. Using version from manifest.")
+            package.version = scorm_version  # Fall back to the version from the manifest
+
+        # Set SCORM standard
+        scorm_standard = get_scorm_standard(scorm_version)
+        if scorm_standard:
+            package.scorm_standard = scorm_standard
 
         package.status = 'ready'
         package.save()
