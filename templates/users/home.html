@@ -150,6 +150,7 @@
         <header>
             <div class="logo">SCORMHub</div>
             <nav>
+                <span>Welcome, {{ request.user.email }}</span>
                 <a href="{% url 'user_login' %}" class="btn">Logout</a>
             </nav>
         </header>
