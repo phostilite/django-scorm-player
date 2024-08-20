@@ -127,6 +127,22 @@
             font-family: monospace;
             margin-top: 1rem;
         }
+        .input-group {
+            margin-bottom: 1rem;
+        }
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #8892b0;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #2c3e50;
+            background-color: #0a192f;
+            color: #ffffff;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
@@ -141,10 +157,13 @@
         <main>
             <section class="upload-section">
                 <h2>Upload SCORM Package</h2>
-                <form id="uploadForm">
+                <form id="uploadForm" class="input-group">
+                    <input type="text" id="courseTitle" placeholder="Course Title" required>
+                    <input type="text" id="courseDescription" placeholder="Course Description" required>
                     <input type="file" id="scormFile" accept=".zip" required>
-                    <button type="submit" class="btn">Upload</button>
+                    <button type="submit" class="btn" style="margin-top: 10px;">Upload</button>
                 </form>
+                <div id="uploadStatus"></div>
             </section>
 
             <section class="scorm-list">
@@ -159,7 +178,16 @@
                         </tr>
                     </thead>
                     <tbody id="scormListBody">
-                        <!-- SCORM packages will be populated here -->
+                        {% for scorm_package in scorm_packages %}
+                        <tr>
+                            <td>{{ scorm_package.course.title }}</td>
+                            <td>{{ scorm_package.uploaded_at }}</td>
+                            <td>{{ scorm_package.status }}</td>
+                            <td>
+                                <a href="#" class="btn view-scorm" data-id="{{ scorm_package.id }}">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
                     </tbody>
                 </table>
             </section>
@@ -177,83 +205,78 @@
     </div>
 
     <script>
-        // Simulated SCORM package data
-        const scormPackages = [
-            { id: 1, name: "Introduction to SCORM", uploadDate: "2023-08-15", status: "Ready" },
-            { id: 2, name: "Advanced LMS Integration", uploadDate: "2023-08-10", status: "Processing" },
-            { id: 3, name: "E-Learning Best Practices", uploadDate: "2023-08-05", status: "Ready" },
-        ];
+        const API_URL = '{{ api_url }}';
+        const USER_TOKEN = '{{ user_token }}';
 
-        function populateScormList() {
-            const listBody = document.getElementById('scormListBody');
-            listBody.innerHTML = '';
-            scormPackages.forEach(pkg => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${pkg.name}</td>
-                    <td>${pkg.uploadDate}</td>
-                    <td>${pkg.status}</td>
-                    <td>
-                        <button class="btn" onclick="launchScorm(${pkg.id})">Launch</button>
-                        <button class="btn" onclick="viewLogs(${pkg.id})">View Logs</button>
-                    </td>
-                `;
-                listBody.appendChild(row);
-            });
-        }
+        document.getElementById('uploadForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const courseTitle = document.getElementById('courseTitle').value;
+            const courseDescription = document.getElementById('courseDescription').value;
+            const scormFile = document.getElementById('scormFile').files[0];
+            const statusDiv = document.getElementById('uploadStatus');
 
-        function launchScorm(id) {
-            const modal = document.getElementById('playerModal');
-            const player = document.getElementById('scormPlayer');
-            player.src = `scorm-content/${id}/index.html`;  // Replace with actual SCORM launch URL
-            modal.style.display = 'block';
-        }
+            try {
+                // Step 1: Create the course
+                const courseResponse = await fetch(`${API_URL}/api/courses/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${USER_TOKEN}`,
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify({
+                        title: courseTitle,
+                        description: courseDescription
+                    })
+                });
 
-        function viewLogs(id) {
-            const logViewer = document.getElementById('logViewer');
-            // Simulated log data
-            const logs = [
-                "2023-08-19 10:15:23 - SCORM initialized",
-                "2023-08-19 10:15:25 - cmi.core.lesson_status set to 'incomplete'",
-                "2023-08-19 10:16:30 - cmi.core.score.raw set to 75",
-                "2023-08-19 10:17:45 - cmi.core.lesson_status set to 'completed'",
-                "2023-08-19 10:17:46 - SCORM session terminated"
-            ];
-            logViewer.innerHTML = logs.join('<br>');
-            const modal = document.getElementById('playerModal');
-            modal.style.display = 'block';
-        }
-
-        document.addEventListener('DOMContentLoaded', () => {
-            populateScormList();
-
-            const uploadForm = document.getElementById('uploadForm');
-            uploadForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                alert('SCORM package upload functionality would be implemented here.');
-                // Implement actual file upload logic here
-            });
-
-            const modal = document.getElementById('playerModal');
-            const closeBtn = document.querySelector('.close');
-            closeBtn.onclick = () => {
-                modal.style.display = 'none';
-            };
-            window.onclick = (event) => {
-                if (event.target === modal) {
-                    modal.style.display = 'none';
+                if (!courseResponse.ok) {
+                    throw new Error('Failed to create course');
                 }
-            };
 
-            // Animation for SCORM list
-            anime({
-                targets: '.scorm-list table tr',
-                opacity: [0, 1],
-                translateY: [20, 0],
-                delay: anime.stagger(100),
-                easing: 'easeOutQuad'
-            });
+                const courseData = await courseResponse.json();
+                const courseId = courseData.id;
+
+                // Step 2: Upload the SCORM package
+                const formData = new FormData();
+                formData.append('course_id', courseId);
+                formData.append('file', scormFile);
+
+                const uploadResponse = await fetch(`${API_URL}/api/scorm-packages/upload_package/`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${USER_TOKEN}`,
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: formData
+                });
+
+                if (!uploadResponse.ok) {
+                    throw new Error('Failed to upload SCORM package');
+                }
+
+                statusDiv.textContent = 'SCORM package uploaded successfully!';
+            } catch (error) {
+                console.error('Error:', error);
+                statusDiv.textContent = `Error: ${error.message}`;
+            }
         });
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
     </script>
 </body>
 </html>

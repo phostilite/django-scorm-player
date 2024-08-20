@@ -4,8 +4,9 @@ from django.contrib.auth import authenticate, login, logout
 from django.shortcuts import redirect
 from django.urls import reverse
 from django.contrib import messages
-from scorm_app.models import UserCourseRegistration, SCORMAttempt, Course
+from scorm_app.models import UserCourseRegistration, SCORMAttempt, Course, ScormPackage
 from django.conf import settings
+from rest_framework.authtoken.models import Token
 
 def user_login(request):
     if request.method == 'POST':
@@ -26,23 +27,22 @@ def user_logout(request):
 @login_required
 def user_dashboard(request):
     user = request.user
+    token, created = Token.objects.get_or_create(user=user)
     
-    # Get user's registered courses
     registered_courses = UserCourseRegistration.objects.filter(user=user).select_related('course')
-    
-    # Get user's SCORM attempts
     scorm_attempts = SCORMAttempt.objects.filter(user=user).select_related('scorm_package__course')
-    
-    # Get all available courses
     all_courses = Course.objects.filter(is_active=True)
+    scorm_packages = ScormPackage.objects.all()
     
     context = {
         'user': user,
         'registered_courses': registered_courses,
         'scorm_attempts': scorm_attempts,
         'all_courses': all_courses,
+        'scorm_packages': scorm_packages,
+        'api_url': settings.API_URL,
+        'user_token': token.key,
     }
-    
     return render(request, 'users/home.html', context)
 
 
