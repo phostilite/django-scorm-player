@@ -2,7 +2,7 @@
 
 <p align="center">
   <a href="./scorm-player.mp4">
-    <img src="./video_thumbnail.jpg" alt="SCORM Player Demo" width="100%">
+    <img src="./scorm-player.png" alt="SCORM Player Demo" width="100%">
   </a>
 </p>
 
