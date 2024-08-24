@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+from celery.schedules import crontab
 
 load_dotenv()
 
@@ -47,6 +48,7 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'csp',
     'users',
+    'django_redis',
 ]
 
 MIDDLEWARE = [
@@ -210,3 +212,26 @@ MIDDLEWARE += ['scorm_player.middleware.AllowAllOriginMiddleware']
 
 API_URL = os.getenv('API_URL')
 API_TOKEN = os.getenv('API_TOKEN')
+
+SCORM_LOGS_DIR = os.path.join(BASE_DIR, 'scorm_logs')
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": "redis://127.0.0.1:6379/1",
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        }
+    }
+}
+
+# Set the cache backend to redis
+SESSION_ENGINE = "django.contrib.sessions.backends.cache"
+SESSION_CACHE_ALIAS = "default"
+
+CELERY_BEAT_SCHEDULE = {
+    'process-scorm-logs': {
+        'task': 'scorm_app.tasks.process_scorm_logs',
+        'schedule': crontab(minute='*/5'),  
+    },
+}

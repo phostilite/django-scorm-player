@@ -27,7 +27,8 @@ import os
 from django.urls import reverse
 from django.shortcuts import redirect
 from django.views.decorators.clickjacking import xframe_options_exempt
-
+from .utils import append_to_log, read_log
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -429,6 +430,9 @@ class SCORMAPIViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
     authentication_classes = [CustomTokenAuthentication]
 
+    def _get_cache_key(self, user_id, attempt_id, element_id):
+        return f"scorm:{user_id}:{attempt_id}:{element_id}"
+
     @action(detail=False, methods=['post'])
     def set_value(self, request):
         logger.info("SCORMAPIViewSet.set_value called")
@@ -446,29 +450,17 @@ class SCORMAPIViewSet(viewsets.ViewSet):
             attempt = get_object_or_404(SCORMAttempt, id=attempt_id, user=request.user)
             logger.debug(f"Found SCORMAttempt: {attempt}")
 
-            element, created = SCORMElement.objects.update_or_create(
-                scorm_attempt=attempt,
-                element_id=element_id,
-                defaults={'value': value}
-            )
-            logger.debug(f"SCORMElement {'created' if created else 'updated'}: {element}")
+            # Append to the log file
+            append_to_log(request.user.id, attempt_id, {
+                'element_id': element_id,
+                'value': value
+            })
             
-            # Update SCORMAttempt if necessary
-            if element_id in ['cmi.core.lesson_status', 'cmi.completion_status']:
-                attempt.update_status(completion_status=value)
-                logger.debug(f"Updated attempt completion status: {value}")
-            elif element_id in ['cmi.core.score.raw', 'cmi.score.raw']:
-                try:
-                    score = float(value)
-                    if 0 <= score <= 100:  
-                        attempt.update_status(score=score)
-                        logger.debug(f"Updated attempt score: {score}")
-                    else:
-                        logger.warning(f"Invalid score value: {value}")
-                except ValueError:
-                    logger.error(f"Invalid score format: {value}")
+            # Update the cache
+            cache_key = self._get_cache_key(request.user.id, attempt_id, element_id)
+            cache.set(cache_key, value, timeout=None)  # No expiration
             
-            logger.info(f"SCORM API value set successfully: {element_id}")
+            logger.info(f"SCORM API value set and cached: {element_id}")
             return Response({"success": True})
         except Exception as e:
             logger.exception(f"Error setting SCORM API value: {str(e)}")
@@ -490,17 +482,30 @@ class SCORMAPIViewSet(viewsets.ViewSet):
             attempt = get_object_or_404(SCORMAttempt, id=attempt_id, user=request.user)
             logger.debug(f"Found SCORMAttempt: {attempt}")
 
-            try:
-                element = SCORMElement.objects.get(scorm_attempt=attempt, element_id=element_id)
-                logger.debug(f"Found SCORMElement: {element}")
-                logger.info(f"SCORM API value retrieved: {element_id}")
-                return Response({"value": element.value})
-            except SCORMElement.DoesNotExist:
-                logger.warning(f"SCORM element not found: {element_id}")
-                return Response({"value": ""})  # Return empty string for unset values
+            # Try to get the value from cache first
+            cache_key = self._get_cache_key(request.user.id, attempt_id, element_id)
+            cached_value = cache.get(cache_key)
+            
+            if cached_value is not None:
+                logger.info(f"SCORM API value retrieved from cache: {element_id}")
+                return Response({"value": cached_value})
+            
+            # If not in cache, read from the log file
+            log_data = read_log(request.user.id, attempt_id)
+            
+            # Find the latest value for the given element_id
+            latest_value = next((entry['data']['value'] for entry in reversed(log_data) 
+                                 if entry['data']['element_id'] == element_id), "")
+
+            # Cache the value for future requests
+            cache.set(cache_key, latest_value, timeout=None)  # No expiration
+
+            logger.info(f"SCORM API value retrieved from log and cached: {element_id}")
+            return Response({"value": latest_value})
         except Exception as e:
             logger.exception(f"Error getting SCORM API value: {str(e)}")
             return Response({'error': 'An error occurred while getting the SCORM API value.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 
 class ReportingViewSet(viewsets.ViewSet):
     permission_classes = [IsAuthenticated]
