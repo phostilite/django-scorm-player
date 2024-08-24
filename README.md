@@ -1,15 +1,10 @@
 # 🚀 Optimized SCORM Player
 
 <p align="center">
-  <video width="100%" autoplay loop muted>
-    <source src="./scorm-player.mp4" type="video/mp4">
-    Your browser does not support the video tag.
-  </video>
+  <a href="./scorm-player.mp4">
+    <img src="./video_thumbnail.jpg" alt="SCORM Player Demo" width="100%">
+  </a>
 </p>
-
-# 🚀 Optimized SCORM Player
-
-[Rest of your README content goes here]
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
