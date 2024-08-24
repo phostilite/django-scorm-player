@@ -1,9 +1,10 @@
 # 🚀 Optimized SCORM Player
 
 <p align="center">
-  <a href="./scorm-player.mp4">
-    <img src="./scorm-player.png" alt="SCORM Player Demo" width="100%">
-  </a>
+  <video width="100%" autoplay loop muted>
+    <source src="./scorm-player.mp4" type="video/mp4">
+    Your browser does not support the video tag.
+  </video>
 </p>
 
 # 🚀 Optimized SCORM Player
