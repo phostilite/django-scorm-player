@@ -1,0 +1,16 @@
+[
+  {
+    "timestamp": "2024-08-24T11:14:41.086996+00:00",
+    "data": {
+      "element_id": "cmi.core.session_time",
+      "value": "0000:22:46.18"
+    }
+  },
+  {
+    "timestamp": "2024-08-24T11:46:01.233258+00:00",
+    "data": {
+      "element_id": "cmi.core.session_time",
+      "value": "0000:54:06.45"
+    }
+  }
+]
