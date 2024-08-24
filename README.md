@@ -59,7 +59,7 @@ Our optimized SCORM player stands out from traditional implementations in severa
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/optimized-scorm-player.git
+   git clone https://github.com/phostilite/optimized-scorm-player.git
    cd optimized-scorm-player
    ```
 
