@@ -1,6 +1,14 @@
 # 🚀 Optimized SCORM Player
 
-![SCORM Player Banner](https://via.placeholder.com/800x200?text=Optimized+SCORM+Player)
+<p align="center">
+  <a href="./scorm-player.mp4">
+    <img src="./scorm-player.png" alt="SCORM Player Demo" width="100%">
+  </a>
+</p>
+
+# 🚀 Optimized SCORM Player
+
+[Rest of your README content goes here]
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/python-3.8%2B-blue)](https://www.python.org/downloads/)
