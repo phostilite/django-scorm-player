@@ -59,8 +59,8 @@ Our optimized SCORM player stands out from traditional implementations in severa
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/phostilite/optimized-scorm-player.git
-   cd optimized-scorm-player
+   git clone https://github.com/phostilite/django-scorm-player.git
+   cd django-scorm-player
    ```
 
 2. Set up a virtual environment:
@@ -91,7 +91,7 @@ Our optimized SCORM player stands out from traditional implementations in severa
 
 7. In a new terminal, start Celery:
    ```bash
-   celery -A your_project_name worker -l info
+   celery -A scorm_player worker -l info
    ```
 
 ## 🖥 Usage
@@ -112,7 +112,7 @@ Key configuration options in `settings.py`:
 SCORM_LOGS_DIR = os.path.join(BASE_DIR, 'scorm_logs')
 CELERY_BEAT_SCHEDULE = {
     'process-scorm-logs': {
-        'task': 'your_app.tasks.process_scorm_logs',
+        'task': 'scorm_app.tasks.process_scorm_logs',
         'schedule': crontab(minute='*/15'),  # Runs every 15 minutes
     },
 }
